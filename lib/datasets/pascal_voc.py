@@ -20,13 +20,13 @@ from voc_eval import voc_eval
 from fast_rcnn.config import cfg
 
 class pascal_voc(imdb):
-    def __init__(self, image_set, year, devkit_path=None):
+    def __init__(self, image_set, year):
         imdb.__init__(self, 'voc_' + year + '_' + image_set)
         self._year = year
         self._image_set = image_set
-        self._devkit_path = self._get_default_path() if devkit_path is None \
-                            else devkit_path
-        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
+        self._data_path = os.path.join(cfg.DATA_DIR, 'VOC' + self._year)
+        assert os.path.exists(self._data_path), 'Path does not exist: {}'.format(self._data_path)
+
         self._classes = ('__background__', # always index 0
                          'aeroplane', 'bicycle', 'bird', 'boat',
                          'bottle', 'bus', 'car', 'cat', 'chair',
@@ -49,17 +49,14 @@ class pascal_voc(imdb):
                        'rpn_file'    : None,
                        'min_size'    : 2}
 
-        assert os.path.exists(self._devkit_path), \
-                'VOCdevkit path does not exist: {}'.format(self._devkit_path)
-        assert os.path.exists(self._data_path), \
-                'Path does not exist: {}'.format(self._data_path)
-
+    
     def image_path_at(self, i):
         """
         Return the absolute path to image i in the image sequence.
         """
         return self.image_path_from_index(self._image_index[i])
 
+    
     def image_path_from_index(self, index):
         """
         Construct an image path from the image's "index" identifier.
@@ -74,8 +71,6 @@ class pascal_voc(imdb):
         """
         Load the indexes listed in this dataset's image set file.
         """
-        # Example path to image set file:
-        # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
         image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
                                       self._image_set + '.txt')
         assert os.path.exists(image_set_file), \
@@ -83,13 +78,7 @@ class pascal_voc(imdb):
         with open(image_set_file) as f:
             image_index = [x.strip() for x in f.readlines()]
         return image_index
-
-    def _get_default_path(self):
-        """
-        Return the default path where PASCAL VOC is expected to be installed.
-        """
-        return os.path.join(cfg.DATA_DIR, 'VOCdevkit' + self._year)
-
+    
     def gt_roidb(self):
         """
         Return the database of ground-truth regions of interest.
@@ -232,7 +221,7 @@ class pascal_voc(imdb):
         # VOCdevkit/results/VOC2007/Main/<comp_id>_det_test_aeroplane.txt
         filename = self._get_comp_id() + '_det_' + self._image_set + '_{:s}.txt'
         path = os.path.join(
-            self._devkit_path,
+            cfg.DATA_DIR,
             'results',
             'VOC' + self._year,
             'Main',
@@ -259,17 +248,15 @@ class pascal_voc(imdb):
 
     def _do_python_eval(self, output_dir = 'output'):
         annopath = os.path.join(
-            self._devkit_path,
-            'VOC' + self._year,
+            self._data_path,
             'Annotations',
             '{:s}.xml')
         imagesetfile = os.path.join(
-            self._devkit_path,
-            'VOC' + self._year,
+            self._data_path,
             'ImageSets',
             'Main',
             self._image_set + '.txt')
-        cachedir = os.path.join(self._devkit_path, 'annotations_cache')
+        cachedir = os.path.join(self._data_path, 'annotations_cache')
         aps = []
         # The PASCAL VOC metric changed in 2010
         use_07_metric = True if int(self._year) < 2010 else False
@@ -312,7 +299,7 @@ class pascal_voc(imdb):
         cmd += '{:s} -nodisplay -nodesktop '.format(cfg.MATLAB)
         cmd += '-r "dbstop if error; '
         cmd += 'voc_eval(\'{:s}\',\'{:s}\',\'{:s}\',\'{:s}\'); quit;"' \
-               .format(self._devkit_path, self._get_comp_id(),
+               .format(self._data_path, self._get_comp_id(),
                        self._image_set, output_dir)
         print('Running:\n{}'.format(cmd))
         status = subprocess.call(cmd, shell=True)
